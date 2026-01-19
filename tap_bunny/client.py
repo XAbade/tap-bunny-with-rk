@@ -335,9 +335,14 @@ class BunnyStream(GraphQLStream):
     def post_process(
         self,
         row: dict,
-        context: Context | None = None,  # noqa: ARG002
+        context: Context | None = None,
     ) -> dict | None:
-        """As needed, append or transform raw data to match expected structure.
+        """Filter records according to replication_key and state.
+
+        This mirrors the Sherpaan tap behaviour: on each run we only emit records
+        whose replication_key value is newer than the stored bookmark (or
+        ``start_date`` if no bookmark exists yet). Older records are skipped so
+        downstream targets don't see full-history replays.
 
         Args:
             row: An individual record from the stream.
@@ -346,7 +351,43 @@ class BunnyStream(GraphQLStream):
         Returns:
             The updated record dictionary, or ``None`` to skip the record.
         """
-        # TODO: Delete this method if not needed.
+        # If incremental sync is disabled or no replication_key is set,
+        # just pass records through unchanged.
+        rk = getattr(self, "replication_key", None)
+        if not rk or not self.incremental_sync:
+            return row
+
+        # If the record has no replication_key value, keep it to avoid data loss.
+        rk_value = row.get(rk)
+        if rk_value is None:
+            return row
+
+        # Timestamp-based replication keys: use the SDK's starting timestamp helper.
+        if self.is_timestamp_replication_key:
+            start_ts = self.get_starting_timestamp(context)
+            if start_ts is None:
+                return row
+
+            try:
+                current_ts = datetime.fromisoformat(rk_value)
+            except Exception:
+                # If we can't parse the timestamp, don't drop the record.
+                return row
+
+            # Skip records older than the bookmark/start_date.
+            if current_ts < start_ts:
+                return None
+            return row
+
+        # Non-timestamp replication keys: fall back to lexical comparison.
+        start_val = self.get_starting_replication_key_value(context)
+        if start_val is None:
+            return row
+
+        # Convert both to strings for a stable comparison.
+        if str(rk_value) <= str(start_val):
+            return None
+
         return row
 
     def prepare_request(
