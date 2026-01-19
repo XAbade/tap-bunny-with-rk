@@ -20,7 +20,6 @@ SCHEMAS_DIR = resources.files(__package__) / "schemas"
 
 class GroupsStream(BunnyStream):
     """Define custom stream."""
-
     name = "groups"
     path = "/graphql"
     schema = th.PropertiesList(
@@ -29,6 +28,7 @@ class GroupsStream(BunnyStream):
         th.Property("modified", th.DateTimeType),
     ).to_dict()
     primary_keys: t.ClassVar[list[str]] = ["id"]
+    replication_key = "modified"
 
     query = """
     query Groups($after: String, $sort: String) {
@@ -98,6 +98,7 @@ class AccountsStream(BunnyStream):
         th.Property("website", th.StringType),
     ).to_dict()
     primary_keys: t.ClassVar[list[str]] = ["id"]
+    replication_key = "updatedAt"
 
     query = """
     query Accounts($after: String, $sort: String) {
@@ -182,6 +183,7 @@ class SubscriptionsStream(BunnyStream):
         th.Property("updatedAt", th.DateTimeType),
     ).to_dict()
     primary_keys: t.ClassVar[list[str]] = ["id"]
+    replication_key = "updatedAt"
 
     query = """
     query Subscriptions($after: String, $sort: String) {
@@ -294,6 +296,7 @@ class EntitiesStream(BunnyStream):
         th.Property("website", th.StringType),
     ).to_dict()
     primary_keys: t.ClassVar[list[str]] = ["id"]
+    replication_key = "updatedAt"
 
     query = """
     query Entities($after: String, $sort: String) {
@@ -380,6 +383,7 @@ class InvoicesStream(BunnyStream):
         th.Property("uuid", th.StringType),
     ).to_dict()
     primary_keys: t.ClassVar[list[str]] = ["id"]
+    replication_key = "updatedAt"
 
     query = """
     query Invoices($after: String, $sort: String) {
@@ -513,6 +517,7 @@ class PaymentsStream(BunnyStream):
         th.Property("startedAt", th.DateTimeType),
     ).to_dict()
     primary_keys: t.ClassVar[list[str]] = ["id"]
+    replication_key = "updatedAt"
 
     query = """
     query Payments($after: String, $sort: String) {
@@ -563,6 +568,7 @@ class PaymentMethodsStream(BunnyStream):
         th.Property("updatedAt", th.DateTimeType),
     ).to_dict()
     primary_keys: t.ClassVar[list[str]] = ["id"]
+    replication_key = "updatedAt"
     support_sort = False
 
     query = """
@@ -666,6 +672,7 @@ class PlansStream(BunnyStream):
         th.Property("updatedAt", th.DateTimeType),
     ).to_dict()
     primary_keys: t.ClassVar[list[str]] = ["id"]
+    replication_key = "updatedAt"
 
     query = """
     query Plans($after: String, $sort: String) {
@@ -746,6 +753,7 @@ class QuotesStream(BunnyStream):
         th.Property("uuid", th.StringType),
     ).to_dict()
     primary_keys: t.ClassVar[list[str]] = ["id"]
+    replication_key = "updatedAt"
 
     query = """
     query Quotes($after: String, $sort: String) {
@@ -834,6 +842,7 @@ class QuoteChargesStream(BunnyStream):
         th.Property("vatCode", th.StringType),
     ).to_dict()
     primary_keys: t.ClassVar[list[str]] = ["id"]
+    replication_key = "updatedAt"
 
     query = """
     query QuoteCharges($after: String, $sort: String) {
@@ -990,6 +999,7 @@ class SubscriptionChargesStream(BunnyStream):
         th.Property("updatedAt", th.DateTimeType),
     ).to_dict()
     primary_keys: t.ClassVar[list[str]] = ["id"]
+    replication_key = "updatedAt"
 
     query = """
     query SubscriptionCharges($after: String, $sort: String) {
@@ -1091,6 +1101,7 @@ class TenantsStream(BunnyStream):
         th.Property("utilizationMetrics", th.StringType),
     ).to_dict()
     primary_keys: t.ClassVar[list[str]] = ["id"]
+    replication_key = "updatedAt"
 
     query = """
     query Tenants($after: String, $sort: String) {
@@ -1150,6 +1161,8 @@ class ContactsStream(BunnyStream):
         th.Property("title", th.StringType),
         th.Property("updatedAt", th.DateTimeType),
     ).to_dict()
+    primary_keys: t.ClassVar[list[str]] = ["id"]
+    replication_key = "updatedAt"
 
     query = """
     query Contacts($after: String, $sort: String) {
@@ -1206,6 +1219,7 @@ class FeatureUsagesStream(BunnyStream):
         th.Property("usageAt", th.DateTimeType),
     ).to_dict()
     primary_keys: t.ClassVar[list[str]] = ["id"]
+    replication_key = "updatedAt"
 
     query = """
     query FeatureUsages($after: String, $before: String, $first: Int, $last: Int, $filter: String, $sort: String, $viewId: ID, $format: String) {
@@ -1256,6 +1270,7 @@ class FeaturesStream(BunnyStream):
         th.Property("updatedAt", th.DateTimeType),
     ).to_dict()
     primary_keys: t.ClassVar[list[str]] = ["id"]
+    replication_key = "updatedAt"
 
     query = """
     query Features($after: String, $before: String, $first: Int, $last: Int, $filter: String, $sort: String, $viewId: ID, $format: String) {
@@ -1318,6 +1333,7 @@ class CreditNotesStream(BunnyStream):
         th.Property("state", th.StringType),
     ).to_dict()
     primary_keys: t.ClassVar[list[str]] = ["id"]
+    replication_key = "updatedAt"
 
     query = """
     query creditNotes ($after: String, $before: String, $first: Int, $last: Int, $filter: String, $sort: String, $viewId: ID, $format: String) {
@@ -1386,6 +1402,7 @@ class DealsStream(BunnyStream):
         th.Property("viaPortal", th.BooleanType)
     ).to_dict()
     primary_keys: t.ClassVar[list[str]] = ["id"]
+    replication_key = "updatedAt"
 
     query = """
     query deals ($after: String, $before: String, $first: Int, $last: Int, $filter: String, $sort: String, $viewId: ID, $format: String) {
@@ -1452,6 +1469,7 @@ class UsersStream(BunnyStream):
         th.Property("uuid", th.StringType)
     ).to_dict()
     primary_keys: t.ClassVar[list[str]] = ["id"]
+    replication_key = "updatedAt"
 
     query = """
     query users ($after: String, $before: String, $first: Int, $last: Int, $filter: String, $sort: String, $viewId: ID, $format: String) {
