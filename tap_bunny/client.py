@@ -163,18 +163,30 @@ class BunnyStream(GraphQLStream):
         """Return whether incremental sync is enabled.
         
         This property reads the incremental_sync setting from the config.
-        If not specified, it defaults to False to use cursor-based pagination only.
+        If not specified, it defaults to False.
         """
         return self.config.get("incremental_sync", False)
 
     def get_starting_replication_key_value(self, context: dict | None) -> str | None:
-        """Get starting replication key value based on config."""
-        # Always return None to perform a full sync using cursor-based pagination
+        """Get starting replication key value based on state and config.
+
+        Uses the Singer SDK's default incremental logic when a replication_key
+        is defined and incremental_sync is enabled; otherwise returns ``None``.
+        """
+        # Only delegate to the base implementation when we actually want
+        # incremental behaviour for this stream.
+        if self.incremental_sync and getattr(self, "replication_key", None):
+            return super().get_starting_replication_key_value(context)
         return None
 
     def get_starting_timestamp(self, context: dict | None) -> datetime | None:
-        """Get starting timestamp based on config."""
-        # Always return None to perform a full sync using cursor-based pagination
+        """Get starting timestamp based on state and config.
+
+        This will typically use the tap's ``start_date`` plus any stored state
+        when a replication_key is defined and incremental_sync is enabled.
+        """
+        if self.incremental_sync and getattr(self, "replication_key", None):
+            return super().get_starting_timestamp(context)
         return None
 
     def get_next_page_token(
