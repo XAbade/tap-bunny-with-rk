@@ -375,7 +375,7 @@ class BunnyStream(GraphQLStream):
                 return row
 
             # Skip records older than the bookmark/start_date.
-            if current_ts < start_ts:
+            if current_ts <= start_ts:
                 return None
             return row
 
