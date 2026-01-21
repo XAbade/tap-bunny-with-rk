@@ -264,6 +264,10 @@ class BunnyStream(GraphQLStream):
     ) -> Dict[str, Any]:
         """Return a dictionary of values to be used in GraphQL variables.
         
+        This now also pushes the incremental replication filter down to the API
+        whenever possible, so the backend only returns records *after* the last
+        synced replication_key rather than a full page which we filter locally.
+        
         Args:
             context: The stream context
             next_page_token: The token for the next page
@@ -286,10 +290,44 @@ class BunnyStream(GraphQLStream):
                 variables["sort"] = self.config["sort"]
             else:
                 variables["sort"] = "id"
-            
-        # Add filter variable if specified in config
-        if "filter" in self.config:
-            variables["filter"] = self.config["filter"]
+        
+        # ------------------------------------------------------------------
+        # Incremental filter pushed down to the API
+        # ------------------------------------------------------------------
+        rk = getattr(self, "replication_key", None)
+        auto_filter: str | None = None
+
+        if rk and self.incremental_sync:
+            # Decide which "starting point" helper to use.
+            if self.is_timestamp_replication_key:
+                start_val = self.get_starting_timestamp(context)
+            else:
+                start_val = self.get_starting_replication_key_value(context)
+
+            if start_val is not None:
+                # Allow streams to override the field used in the filter, e.g.
+                # for nested fields like "invoice.updatedAt".
+                filter_field = getattr(self, "filter_replication_key", rk)
+
+                if isinstance(start_val, datetime):
+                    value_str = start_val.isoformat()
+                else:
+                    value_str = str(start_val)
+
+                # Bunny's GraphQL API accepts expressions like:
+                #   "<field> is after <value>"
+                auto_filter = f"{filter_field} is after {value_str}"
+
+        # Add filter variable:
+        # - If user provided a static filter, we keep it.
+        # - If we also have an auto_filter, we combine them with AND.
+        user_filter = self.config.get("filter")
+        if user_filter and auto_filter:
+            variables["filter"] = f"({user_filter}) and ({auto_filter})"
+        elif auto_filter:
+            variables["filter"] = auto_filter
+        elif user_filter:
+            variables["filter"] = user_filter
             
         # Add viewId variable if specified in config
         if "viewId" in self.config:
@@ -374,7 +412,9 @@ class BunnyStream(GraphQLStream):
                 # If we can't parse the timestamp, don't drop the record.
                 return row
 
-            # Skip records older than the bookmark/start_date.
+            # Skip records older than or equal to the bookmark/start_date so that
+            # we only emit records strictly *after* the stored replication_key.
+            # This avoids returning the last record from the previous sync.
             if current_ts <= start_ts:
                 return None
             return row
