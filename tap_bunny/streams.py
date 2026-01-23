@@ -537,6 +537,14 @@ class PaymentsStream(BunnyStream):
                 receivedAt
                 state
                 updatedAt
+                completedAt
+                conversionRate
+                errorCode
+                errorMessage
+                fees
+                paymentProcessor
+                remoteTransactionId
+                startedAt
             }
             pageInfo {
                 startCursor
@@ -1361,6 +1369,7 @@ class CreditNotesStream(BunnyStream):
                     updatedAt
                     uuid
                     warrenId
+                    state
                 }
             }
             totalCount
