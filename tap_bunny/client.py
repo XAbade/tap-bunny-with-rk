@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import decimal
 import typing as t
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Any, Dict
 import argparse
 import json
@@ -310,6 +310,13 @@ class BunnyStream(GraphQLStream):
                 filter_field = getattr(self, "filter_replication_key", rk)
 
                 if isinstance(start_val, datetime):
+                    # Bunny's GraphQL API does not accept fractional seconds in
+                    # datetime filters. Normalize to second precision and make
+                    # sure we always have an explicit timezone (defaulting to
+                    # UTC when naive) before serializing.
+                    if start_val.tzinfo is None:
+                        start_val = start_val.replace(tzinfo=timezone.utc)
+                    start_val = start_val.replace(microsecond=0)
                     value_str = start_val.isoformat()
                 else:
                     value_str = str(start_val)
