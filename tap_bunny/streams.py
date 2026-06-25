@@ -521,6 +521,51 @@ class InvoiceItemsStream(BunnyStream):
         return super().post_process(row, context)
 
 
+class InvoiceForecastsStream(BunnyStream):
+    """Define invoice forecasts stream."""
+
+    name = "invoice_forecasts"
+    path = "/graphql"
+    schema = th.PropertiesList(
+        th.Property("id", th.StringType),
+        th.Property("accountId", th.StringType),
+        th.Property("amount", th.CustomType({"type": ["number", "string", "null"]})),
+        th.Property("currencyId", th.StringType),
+        th.Property("entityId", th.StringType),
+        th.Property("month", th.StringType),
+        th.Property("recurringAmount", th.CustomType({"type": ["number", "string", "null"]})),
+        th.Property("usageAmount", th.CustomType({"type": ["number", "string", "null"]})),
+    ).to_dict()
+    primary_keys: t.ClassVar[list[str]] = ["id"]
+
+    query = """
+    query invoiceForecasts($filter: String, $sort: String, $after: String, $before: String, $first: Int, $last: Int) {
+        invoiceForecasts(filter: $filter, sort: $sort, after: $after, before: $before, first: $first, last: $last) {
+            edges {
+                cursor
+                node {
+                    accountId
+                    amount
+                    currencyId
+                    entityId
+                    id
+                    month
+                    recurringAmount
+                    usageAmount
+                }
+            }
+            totalCount
+            pageInfo {
+                startCursor
+                endCursor
+                hasNextPage
+                hasPreviousPage
+            }
+        }
+    }
+    """
+
+
 class PaymentsStream(BunnyStream):
     """Define custom stream."""
 
