@@ -655,7 +655,7 @@ class PaymentMethodsStream(BunnyStream):
         th.Property("updatedAt", th.DateTimeType),
     ).to_dict()
     primary_keys: t.ClassVar[list[str]] = ["id"]
-    replication_key = "updatedAt"
+    #replication_key = "updatedAt"
     support_sort = False
 
     query = """
