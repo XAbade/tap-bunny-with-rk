@@ -29,6 +29,7 @@ STREAM_TYPES = [
     streams.QuoteChargesStream,
     streams.RecurringRevenuesStream,
     streams.RevenueMovementsStream,
+    streams.RevenueRecognitionStream,
     streams.SubscriptionChargesStream,
     streams.TransactionsStream,
     streams.TenantsStream,
@@ -88,6 +89,14 @@ class TapBunny(Tap):
             default=True,
             description="Whether to perform incremental sync (True) or full sync (False)",
         ),
+        th.Property(
+            "revenue_recognition_years",
+            th.ArrayType(th.IntegerType),
+            description=(
+                "Years to extract in the revenue_recognition stream. "
+                "Defaults to the current year."
+            ),
+        ),
     ).to_dict()
 
     def discover_streams(self) -> list[streams.BunnyStream]:
@@ -113,6 +122,7 @@ class TapBunny(Tap):
             streams.QuoteChargesStream(self),
             streams.RecurringRevenuesStream(self),
             streams.RevenueMovementsStream(self),
+            streams.RevenueRecognitionStream(self),
             streams.SubscriptionChargesStream(self),
             streams.TransactionsStream(self),
             streams.TenantsStream(self),
