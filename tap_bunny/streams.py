@@ -9,6 +9,8 @@ from datetime import datetime, timedelta
 
 from singer_sdk import typing as th  # JSON Schema typing helpers
 from singer_sdk.helpers.jsonpath import extract_jsonpath
+import json
+
 import requests
 import decimal
 
@@ -1052,6 +1054,163 @@ class RevenueMovementsStream(BunnyStream):
         }
     }
     """
+
+
+class RevenueRecognitionStream(BunnyStream):
+    """Define revenue recognition stream.
+
+    ``revenueRecognitionTable`` is not a paginated connection: it returns one
+    nested table per entity and year (accounts > documents > items > months).
+    Each partition is one (entityId, year) pair, and the table is flattened to
+    one record per invoice item per month.
+    """
+
+    name = "revenue_recognition"
+    path = "/graphql"
+    schema = th.PropertiesList(
+        th.Property("entityId", th.StringType),
+        th.Property("year", th.IntegerType),
+        th.Property("fiscalYearStartMonth", th.IntegerType),
+        th.Property("month", th.DateType),
+        th.Property("monthLabel", th.StringType),
+        th.Property("accountId", th.StringType),
+        th.Property("accountName", th.StringType),
+        th.Property("documentId", th.StringType),
+        th.Property("documentNumber", th.StringType),
+        th.Property("itemId", th.StringType),
+        th.Property("itemName", th.StringType),
+        th.Property("period", th.StringType),
+        th.Property("revenue", th.CustomType({"type": ["number", "string", "null"]})),
+        th.Property("balance", th.CustomType({"type": ["number", "string", "null"]})),
+    ).to_dict()
+    primary_keys: t.ClassVar[list[str]] = ["entityId", "itemId", "month"]
+
+    query = """
+    query RevRec($year: Int!, $entityId: ID!) {
+        revenueRecognitionTable(year: $year, entityId: $entityId) {
+            fiscalYearStartMonth
+            dateLabels {
+                date
+                label
+            }
+            accounts {
+                id
+                name
+                documents {
+                    id
+                    number
+                    items {
+                        id
+                        name
+                        period
+                        months {
+                            revenue
+                            balance
+                        }
+                    }
+                }
+            }
+        }
+    }
+    """
+
+    entities_query = """
+    query Entities($after: String) {
+        entities(first: 100, after: $after) {
+            nodes {
+                id
+            }
+            pageInfo {
+                endCursor
+                hasNextPage
+            }
+        }
+    }
+    """
+
+    def _get_entity_ids(self) -> list[str]:
+        """Fetch the ids of all entities, independent of entities stream state."""
+        entity_ids: list[str] = []
+        after = None
+        while True:
+            response = requests.post(
+                self.url_base + self.path,
+                headers=self.http_headers,
+                json={"query": self.entities_query, "variables": {"after": after}},
+            )
+            response.raise_for_status()
+            entities = response.json()["data"]["entities"]
+            entity_ids.extend(node["id"] for node in entities["nodes"])
+            if not entities["pageInfo"]["hasNextPage"]:
+                return entity_ids
+            after = entities["pageInfo"]["endCursor"]
+
+    def _get_years(self) -> list[int]:
+        """Return the years to sync: config override, else current year."""
+        if self.config.get("revenue_recognition_years"):
+            return [int(year) for year in self.config["revenue_recognition_years"]]
+        return [datetime.now().year]
+
+    @property
+    def partitions(self) -> list[dict] | None:
+        """Return one partition per (entityId, year)."""
+        if not hasattr(self, "_partitions"):
+            self._partitions = [
+                {"entityId": entity_id, "year": year}
+                for entity_id in self._get_entity_ids()
+                for year in self._get_years()
+            ]
+        return self._partitions
+
+    def get_graphql_variables(
+        self,
+        context: Optional[dict],
+        next_page_token: Optional[Any],
+    ) -> Dict[str, Any]:
+        """Return the entity and year for this partition."""
+        return {"entityId": context["entityId"], "year": context["year"]}
+
+    def get_next_page_token(
+        self,
+        response: requests.Response,
+        previous_token: Optional[Any],
+    ) -> Optional[Any]:
+        """The revenue recognition table is returned in a single response."""
+        return None
+
+    def parse_response(self, response: requests.Response) -> t.Generator[dict, None, None]:
+        """Flatten the table to one record per item per month.
+
+        Months where both revenue and balance are null are skipped.
+        """
+        data = response.json()
+        if data.get("errors"):
+            raise RuntimeError(f"GraphQL errors for {self.name}: {data['errors']}")
+        table = data["data"]["revenueRecognitionTable"]
+        variables = json.loads(response.request.body)["variables"]
+
+        for account in table["accounts"]:
+            for document in account["documents"]:
+                for item in document["items"]:
+                    for date_label, month in zip(table["dateLabels"], item["months"]):
+                        if month["revenue"] is None and month["balance"] is None:
+                            continue
+                        yield {
+                            "entityId": variables["entityId"],
+                            "year": variables["year"],
+                            "fiscalYearStartMonth": table["fiscalYearStartMonth"],
+                            "month": date_label["date"],
+                            "monthLabel": date_label["label"],
+                            "accountId": account["id"],
+                            "accountName": account["name"],
+                            "documentId": document["id"],
+                            "documentNumber": document["number"],
+                            "itemId": item["id"],
+                            "itemName": item["name"],
+                            "period": item["period"],
+                            "revenue": month["revenue"],
+                            "balance": month["balance"],
+                        }
 
 
 class SubscriptionChargesStream(BunnyStream):
