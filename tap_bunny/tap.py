@@ -94,7 +94,7 @@ class TapBunny(Tap):
             th.ArrayType(th.IntegerType),
             description=(
                 "Years to extract in the revenue_recognition stream. "
-                "Defaults to the current year."
+                "Defaults to the previous and current year."
             ),
         ),
     ).to_dict()

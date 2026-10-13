@@ -1146,10 +1146,11 @@ class RevenueRecognitionStream(BunnyStream):
             after = entities["pageInfo"]["endCursor"]
 
     def _get_years(self) -> list[int]:
-        """Return the years to sync: config override, else current year."""
+        """Return the years to sync: config override, else previous and current year."""
         if self.config.get("revenue_recognition_years"):
             return [int(year) for year in self.config["revenue_recognition_years"]]
-        return [datetime.now().year]
+        current_year = datetime.now().year
+        return [current_year - 1, current_year]
 
     @property
     def partitions(self) -> list[dict] | None:
